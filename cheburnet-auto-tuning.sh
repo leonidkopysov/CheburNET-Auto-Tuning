@@ -18,7 +18,7 @@ set -Eeuo pipefail
 export LC_ALL=C
 
 # ============================================================
-# ЧебурNET — адаптивная оптимизация сети v5.9.3
+# ЧебурNET — адаптивная оптимизация сети v1.0.0
 # Author: @kopysovleonid
 # Debian / Ubuntu / Xray / Remnawave
 #
@@ -151,7 +151,7 @@ prompt_choice_yes_no_skip() {
 
 show_intro() {
     printf '\n%s%s╭%s╮%s\n' "$C_BOLD" "$C_CYAN" "$UI_LINE" "$C_RESET"
-    printf '%s%s│  ЧебурNET · АДАПТИВНАЯ ОПТИМИЗАЦИЯ СЕРВЕРА · v5.9.3%s\n' "$C_BOLD" "$C_CYAN" "$C_RESET"
+    printf '%s%s│  ЧебурNET · АДАПТИВНАЯ ОПТИМИЗАЦИЯ СЕРВЕРА · v1.0.0%s\n' "$C_BOLD" "$C_CYAN" "$C_RESET"
     printf '%s%s╰%s╯%s\n' "$C_BOLD" "$C_CYAN" "$UI_LINE" "$C_RESET"
     printf '\n%sЧто делает скрипт:%s\n' "$C_BOLD" "$C_RESET"
     printf '  ◆ Оптимизирует сеть: BBR/fq, TCP/UDP-буферы, backlog и conntrack.\n'
@@ -249,7 +249,7 @@ POST_REBOOT_ENABLED=${CHEBURNET_POST_REBOOT_CHECK:-1}
 CERTIFICATE_AUTOMATION=${CHEBURNET_CERTIFICATES:-1}
 CERTBOT_DRY_RUN=${CHEBURNET_CERTBOT_DRY_RUN:-1}
 TRAFFICGUARD_CHOICE=${CHEBURNET_INSTALL_TRAFFICGUARD:-}
-# Порт панели намеренно НЕ имеет значения по умолчанию. v5.9.3 определяет его
+# Порт панели намеренно НЕ имеет значения по умолчанию. v1.0.0 определяет его
 # по фактическим listener/firewall-правилам либо спрашивает пользователя.
 # Это исключает старые/жёсткие списки портов и ошибочное предположение про 2222.
 PANEL_PORT=""
@@ -282,7 +282,7 @@ STATE_DIR=/var/lib/cheburnet-tuning
 SNAPSHOT_DIR="$STATE_DIR/snapshots"
 BACKUP_DIR="$STATE_DIR/backups"
 mkdir -p "$SNAPSHOT_DIR" "$BACKUP_DIR"
-SNAPSHOT="$SNAPSHOT_DIR/pre-v5.9.3-${RUN_ID}.txt"
+SNAPSHOT="$SNAPSHOT_DIR/pre-v1.0.0-${RUN_ID}.txt"
 
 CONF=/etc/sysctl.d/99-zzzz-cheburnet-performance.conf
 CONF_BASE=$(basename "$CONF")
@@ -297,7 +297,7 @@ CONNTRACK_MODPROBE_CONF=/etc/modprobe.d/99-cheburnet-nf-conntrack.conf
 AUTHORITATIVE_SERVICE=/etc/systemd/system/cheburnet-performance-sysctl.service
 
 printf '\n%s%s%s\n' "$C_BOLD" "$C_CYAN" "$UI_LINE"
-printf '  ЧебурNET  ·  адаптивная оптимизация сети  ·  v5.9.3\n'
+printf '  ЧебурNET  ·  адаптивная оптимизация сети  ·  v1.0.0\n'
 printf '%s%s\n' "$UI_LINE" "$C_RESET"
 printf '  Автор       %s@kopysovleonid%s\n' "$C_BOLD" "$C_RESET"
 printf '  Сервер      %s vCPU · %s MB RAM\n' "$CPU" "$RAM_MB"
@@ -395,7 +395,7 @@ fi
 # ============================================================
 # Авторитетные значения производительности
 # ============================================================
-# Начиная с v5.9.3 старые тюнинги не используются как источник целевых значений.
+# В версии v1.0.0 старые тюнинги не используются как источник целевых значений.
 # Профиль рассчитывается только из CPU/RAM и нормализует ранее применённые
 # rmem/wmem/backlog/SYN-параметры. Исключения ниже оставлены только для
 # системных потолков, которые безопаснее не уменьшать автоматически.
@@ -511,7 +511,7 @@ fi
 # Ephemeral port range + reservations
 # ============================================================
 
-# v5.9.3 deliberately normalizes the range instead of preserving an old lower
+# v1.0.0 deliberately normalizes the range instead of preserving an old lower
 # endpoint such as 1024. 10240..65535 still leaves >55k ephemeral ports while
 # keeping the common fixed-service area outside automatic allocation.
 CUR_PORT_RANGE=$(normalize_ws "$(sysctl -n net.ipv4.ip_local_port_range 2>/dev/null || echo '32768 60999')")
@@ -541,7 +541,7 @@ CUR_RESERVED=$(sysctl -n net.ipv4.ip_local_reserved_ports 2>/dev/null || true)
 RESERVED_SUPPORTED=0
 [[ -e /proc/sys/net/ipv4/ip_local_reserved_ports ]] && RESERVED_SUPPORTED=1
 
-# v5.9.3 never treats every unconnected UDP socket from `ss -lun` as a fixed
+# v1.0.0 never treats every unconnected UDP socket from `ss -lun` as a fixed
 # listener. Xray/QUIC can keep transient UDP source sockets there. TCP LISTEN
 # sockets are safe to auto-detect; fixed UDP inbounds can be declared below.
 FIXED_TCP_PORTS=()
@@ -661,7 +661,7 @@ filter_port_spec_to_range() {
 }
 
 # Preserve the reservation set that existed before ЧебурNET started managing
-# it. On the first v5.9.3 run after v4, recover this baseline from the oldest
+# it. On the first v1.0.0 run after v4, recover this baseline from the oldest
 # pre-v4 snapshot. This removes ports that v4 accidentally learned from
 # transient UDP sockets without deleting reservations that predated v4.
 RESERVED_BASELINE_FILE="$STATE_DIR/reserved-baseline.txt"
@@ -752,7 +752,7 @@ if [[ -n $EXPLICIT_UDP_RESERVED_RAW && $EXPLICIT_UDP_RESERVED_RAW != "$EXPLICIT_
     UDP_OUT_OF_RANGE_IGNORED=1
 fi
 
-# Build the authoritative v5.9.3 set from:
+# Build the authoritative v1.0.0 set from:
 #   1) pre-ЧебурNET baseline,
 #   2) current fixed TCP LISTEN ports inside the ephemeral range,
 #   3) explicitly declared fixed UDP inbounds.
@@ -797,7 +797,7 @@ if [[ -e /proc/sys/net/netfilter/nf_conntrack_max ]]; then
     # Если уменьшение live-таблицы ядро отклонит, значение всё равно будет
     # сохранено и скрипт попросит перезагрузку.
     cat >"$CONNTRACK_MODPROBE_CONF" <<EOF
-# ЧебурNET — адаптивная оптимизация сети v5.9.3
+# ЧебурNET — адаптивная оптимизация сети v1.0.0
 # Author: @kopysovleonid
 options nf_conntrack hashsize=${CT_BUCKETS}
 EOF
@@ -881,7 +881,7 @@ build_active_sysctl_files() {
 # ============================================================
 
 {
-    echo "ЧебурNET v5.9.3 — снимок до изменений"
+    echo "ЧебурNET v1.0.0 — снимок до изменений"
     echo "Запуск: $RUN_ID"
     echo "Автор: @kopysovleonid"
     echo "Ядро: $(uname -r)"
@@ -931,7 +931,7 @@ done
 if (( EXISTING_ASSIGNMENTS > 0 )); then
     info "Найдено ${EXISTING_ASSIGNMENTS} старых назначений управляемых sysctl; снимок сохранён."
 else
-    ok "Старых назначений управляемых sysctl вне профиля ЧебурNET v5.9.3 не найдено."
+    ok "Старых назначений управляемых sysctl вне профиля ЧебурNET v1.0.0 не найдено."
 fi
 
 # ============================================================
@@ -973,13 +973,13 @@ if [[ -f $OLD_GLOBAL_LIMITS ]]; then
 fi
 
 if [[ -f /etc/security/limits.d/99-cheburnet.conf ]]; then
-    info "Найден /etc/security/limits.d/99-cheburnet.conf; v5.9.3 не изменяет PAM/login limits."
+    info "Найден /etc/security/limits.d/99-cheburnet.conf; v1.0.0 не изменяет PAM/login limits."
 fi
 
 # ============================================================
 # Авторитетный режим: ЧебурNET владеет управляемыми sysctl
 # ============================================================
-# v5.9.3 больше не переписывает все чужие /etc/sysctl.d/*.conf. Профиль ЧебурNET
+# v1.0.0 не переписывает все чужие /etc/sysctl.d/*.conf. Профиль ЧебурNET
 # имеет позднее имя и повторно применяется отдельным systemd unit после
 # systemd-sysctl. Нейтрализуются только реально более поздние файлы и
 # /etc/sysctl.conf. Изменения, которые v5.3/v5.4 успели внести в более ранние
@@ -1049,7 +1049,7 @@ neutralize_managed_assignments() {
         lhs=${lhs//\//.}
 
         if [[ -n ${MANAGED_SET[$lhs]+x} ]]; then
-            printf '# [ЧебурNET v5.9.3] отключено: %s\n' "$line" >>"$tmp"
+            printf '# [ЧебурNET v1.0.0] отключено: %s\n' "$line" >>"$tmp"
             changed=$((changed + 1))
         else
             printf '%s\n' "$line" >>"$tmp"
@@ -1084,7 +1084,7 @@ trap cleanup_tmp EXIT
 
 cat >"$TMP" <<EOF
 # ============================================================
-# ЧебурNET — адаптивный сетевой профиль v5.9.3
+# ЧебурNET — адаптивный сетевой профиль v1.0.0
 # Автор: @kopysovleonid
 # Сформировано: $(date -Is)
 # CPU: ${CPU}
@@ -1124,7 +1124,7 @@ if ((${#SECURITY_SYSCTL_KEYS[@]})); then
 fi
 cat >>"$TMP" <<EOF
 
-# Временные порты — нормализованы v5.9.3, старый нижний предел 1024 не наследуется.
+# Временные порты — нормализованы v1.0.0, старый нижний предел 1024 не наследуется.
 net.ipv4.ip_local_port_range = ${PORT_LOW} ${PORT_HIGH}
 
 EOF
@@ -1408,7 +1408,7 @@ if [[ -f /etc/sysctl.conf ]]; then
 fi
 
 if (( CONFLICTS == 0 )); then
-    ok "Более поздние файлы sysctl.d не переопределяют профиль v5.9.3."
+    ok "Более поздние файлы sysctl.d не переопределяют профиль v1.0.0."
 fi
 
 # ============================================================
@@ -1462,7 +1462,7 @@ fi
 if [[ -n $DEFAULT_IF && -n $TC_BIN ]]; then
     echo "Текущий qdisc на ${DEFAULT_IF}:"
     "$TC_BIN" qdisc show dev "$DEFAULT_IF" 2>/dev/null || true
-    info "Корневой qdisc показан для диагностики; v5.9.3 не заменяет mq/fq_codel вслепую на работающем интерфейсе."
+    info "Корневой qdisc показан для диагностики; v1.0.0 не заменяет mq/fq_codel вслепую на работающем интерфейсе."
 fi
 
 # Preserve foreign higher ceilings, but flag extreme values for review instead of silently blessing them.
@@ -1496,7 +1496,7 @@ if (( MANAGE_RESERVED )); then
             info "CHEBURNET_UDP_PORTS действует только на этот запуск; для постоянной настройки используйте ${UDP_PORTS_FILE}."
         fi
     else
-        info "Фиксированные UDP-порты во временном диапазоне не заданы; v5.9.3 не определяет их по ss -lun."
+        info "Фиксированные UDP-порты во временном диапазоне не заданы; v1.0.0 не определяет их по ss -lun."
     fi
     if (( UDP_OUT_OF_RANGE_IGNORED )); then
         info "Явные UDP-порты вне ${PORT_LOW}-${PORT_HIGH} не резервировались: временный allocator их не использует."
@@ -1512,8 +1512,8 @@ if (( MANAGE_RESERVED )); then
 else
     info "ip_local_reserved_ports недоступен в этом ядре; настройка резервов пропущена."
 fi
-info "TCP LISTEN-порты определяются на момент запуска; после добавления/смены высоких TCP inbound запустите v5.9.3 повторно."
-info "Для фиксированных UDP inbound >= ${PORT_LOW} добавьте порты в ${UDP_PORTS_FILE} (или CHEBURNET_UDP_PORTS) и повторите v5.9.3."
+info "TCP LISTEN-порты определяются на момент запуска; после добавления/смены высоких TCP inbound запустите v1.0.0 повторно."
+info "Для фиксированных UDP inbound >= ${PORT_LOW} добавьте порты в ${UDP_PORTS_FILE} (или CHEBURNET_UDP_PORTS) и повторите v1.0.0."
 
 TCP_MEM=$(sysctl -n net.ipv4.tcp_mem 2>/dev/null || true)
 [[ -n $TCP_MEM ]] && echo "tcp_mem (авто ядра): $(normalize_ws "$TCP_MEM")"
@@ -2016,7 +2016,7 @@ if [[ -n $ZRAM_ACTIVE_DEV && $ZRAM_MANAGED_BY_CHEBURNET -eq 1 ]]; then
 
     if ((${#ZRAM_VM_LINES[@]})); then
         {
-            echo '# ЧебурNET v5.9.3 — безопасные VM-параметры для собственного ZRAM'
+            echo '# ЧебурNET v1.0.0 — безопасные VM-параметры для собственного ZRAM'
             printf '%s\n' "${ZRAM_VM_LINES[@]}"
         } >"$ZRAM_VM_CONF"
         chmod 0644 "$ZRAM_VM_CONF"
@@ -2295,7 +2295,7 @@ fix_remnanode_nofile_via_compose() {
     override_file="$override_dir/${project:-remnanode}-nofile.override.yml"
 
     cat >"$override_file" <<EOF
-# ЧебурNET v5.9.3 — авторитетный NOFILE для Remnawave Node
+# ЧебурNET v1.0.0 — авторитетный NOFILE для Remnawave Node
 # Автор: @kopysovleonid
 services:
   "${service}":
@@ -2926,7 +2926,7 @@ fi
 # ------------------------------------------------------------
 # Firewall — автоматическое определение панели без списков портов
 # ------------------------------------------------------------
-# v5.9.3 не предполагает, что API Remnawave всегда слушает 2222, и не перебирает
+# v1.0.0 не предполагает, что API Remnawave всегда слушает 2222, и не перебирает
 # заранее заданный список портов. Идентификатор панели строится из фактических
 # данных: env -> ранее подтверждённое состояние -> source-specific firewall
 # rule -> listener процесса rw-node/remnanode -> ручной ввод.
@@ -4996,7 +4996,7 @@ printf '  Финальная проверка: %s\n' "$FINAL_CHECK_STATUS"
 # ============================================================
 
 printf '\n%s%s%s\n' "$C_BOLD" "$C_CYAN" "$UI_LINE"
-printf '  ЧебурNET v5.9.3  ·  ИТОГОВЫЙ ОТЧЁТ\n'
+printf '  ЧебурNET v1.0.0  ·  ИТОГОВЫЙ ОТЧЁТ\n'
 printf '%s%s\n' "$UI_LINE" "$C_RESET"
 
 printf '%sСИСТЕМА%s\n' "$C_BOLD" "$C_RESET"
