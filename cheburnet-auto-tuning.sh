@@ -4,13 +4,13 @@
 # Автоматическая оптимизация и защита Linux-серверов
 #
 # Автор и разработчик: Леонид Копысов
-# GitHub: himik0011113
+# GitHub: leonidkopysov
 # Telegram: @kopysovleonid
 #
 # Copyright (c) 2026 Леонид Копысов
 # SPDX-License-Identifier: MIT
 #
-# Исходный код: https://github.com/himik0011113-afk/CheburNET-Auto-Tuning
+# Исходный код: https://github.com/leonidkopysov/CheburNET-Auto-Tuning
 # Лицензия применяется к оригинальному коду ЧебурNET. Сторонние компоненты
 # сохраняют собственные лицензии и авторские права.
 # ==============================================================================

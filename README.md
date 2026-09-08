@@ -7,7 +7,7 @@
 ### Адаптивная оптимизация и защита Linux-серверов для Xray и Remnawave
 
 ![Version](https://img.shields.io/badge/version-1.0.0-8b5cf6?style=for-the-badge)
-[![Validation](https://img.shields.io/github/actions/workflow/status/himik0011113-afk/CheburNET-Auto-Tuning/validate.yml?branch=main&style=for-the-badge&label=проверка)](https://github.com/himik0011113-afk/CheburNET-Auto-Tuning/actions/workflows/validate.yml)
+[![Validation](https://img.shields.io/github/actions/workflow/status/leonidkopysov/CheburNET-Auto-Tuning/validate.yml?branch=main&style=for-the-badge&label=проверка)](https://github.com/leonidkopysov/CheburNET-Auto-Tuning/actions/workflows/validate.yml)
 [![License](https://img.shields.io/badge/license-MIT-22c55e?style=for-the-badge)](LICENSE)
 [![Ubuntu](https://img.shields.io/badge/Ubuntu-24.04-E95420?style=for-the-badge&logo=ubuntu&logoColor=white)](#-совместимость)
 [![Debian](https://img.shields.io/badge/Debian-12-A81D33?style=for-the-badge&logo=debian&logoColor=white)](#-совместимость)
@@ -21,7 +21,7 @@
 Запустите от `root`:
 
 ```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/himik0011113-afk/CheburNET-Auto-Tuning/main/cheburnet-auto-tuning.sh)
+bash <(curl -fsSL https://raw.githubusercontent.com/leonidkopysov/CheburNET-Auto-Tuning/main/cheburnet-auto-tuning.sh)
 ```
 
 Перед изменением системы скрипт показывает план и запрашивает подтверждение. Обозначения в интерактивных вопросах: `Д` — да, `Н` — нет, `П` — пропустить.
@@ -76,7 +76,7 @@ bash <(curl -fsSL https://raw.githubusercontent.com/himik0011113-afk/CheburNET-A
 
 ```bash
 CHEBURNET_ASSUME_YES=1 CHEBURNET_INSTALL_TRAFFICGUARD=0 \
-bash <(curl -fsSL https://raw.githubusercontent.com/himik0011113-afk/CheburNET-Auto-Tuning/main/cheburnet-auto-tuning.sh)
+bash <(curl -fsSL https://raw.githubusercontent.com/leonidkopysov/CheburNET-Auto-Tuning/main/cheburnet-auto-tuning.sh)
 ```
 
 ## Диагностика
@@ -100,7 +100,7 @@ bash <(curl -fsSL https://raw.githubusercontent.com/himik0011113-afk/CheburNET-A
 ## Автор и лицензия
 
 **Леонид Копысов**  
-GitHub: **himik0011113**  
+GitHub: **leonidkopysov**  
 Telegram: **[@kopysovleonid](https://t.me/kopysovleonid)**
 
 Оригинальный код ЧебурNET распространяется по лицензии [MIT](LICENSE).
