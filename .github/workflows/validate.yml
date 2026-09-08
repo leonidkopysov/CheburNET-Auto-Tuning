@@ -1,0 +1,26 @@
+name: Проверка скрипта
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Проверка синтаксиса Bash
+        run: bash -n cheburnet-auto-tuning.sh
+      - name: Установка ShellCheck
+        run: sudo apt-get update && sudo apt-get install -y shellcheck
+      - name: Проверка критических ошибок ShellCheck
+        run: shellcheck -x --severity=error cheburnet-auto-tuning.sh
+      - name: Информационные предупреждения ShellCheck
+        continue-on-error: true
+        run: shellcheck -x --severity=warning cheburnet-auto-tuning.sh
+
