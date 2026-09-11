@@ -21,5 +21,27 @@ jobs:
       - name: Проверка ShellCheck (ошибки и предупреждения)
         run: shellcheck -x --severity=warning cheburnet-auto-tuning.sh
       - name: Информационные замечания ShellCheck
-        continue-on-error: true
         run: shellcheck -x --severity=info cheburnet-auto-tuning.sh
+      - name: Регрессионные тесты
+        run: python3 -m unittest discover -s tests -v
+      - name: Контрольная сумма
+        run: sha256sum -c SHA256SUMS
+
+  release:
+    needs: validate
+    if: >-
+      github.event_name == 'push' && startsWith(github.event.head_commit.message, 'release: v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Публикация новой версии
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          version=$(tr -d '\r\n' < VERSION)
+          [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]
+          gh release create "v$version" --target "$GITHUB_SHA" \
+            --title "ЧебурNET Auto Tuning $version" --notes-file RELEASE_NOTES.md \
+            cheburnet-auto-tuning.sh SHA256SUMS

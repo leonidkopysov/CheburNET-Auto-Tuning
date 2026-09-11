@@ -6,7 +6,7 @@
 
 ### Адаптивная оптимизация и защита Linux-серверов для Xray и Remnawave
 
-![Version](https://img.shields.io/badge/version-1.0.0-8b5cf6?style=for-the-badge)
+![Version](https://img.shields.io/badge/version-1.0.1-8b5cf6?style=for-the-badge)
 [![Validation](https://img.shields.io/github/actions/workflow/status/leonidkopysov/CheburNET-Auto-Tuning/validate.yml?branch=main&style=for-the-badge&label=проверка)](https://github.com/leonidkopysov/CheburNET-Auto-Tuning/actions/workflows/validate.yml)
 [![License](https://img.shields.io/badge/license-MIT-22c55e?style=for-the-badge)](LICENSE)
 [![Ubuntu](https://img.shields.io/badge/Ubuntu-24.04-E95420?style=for-the-badge&logo=ubuntu&logoColor=white)](#-совместимость)
