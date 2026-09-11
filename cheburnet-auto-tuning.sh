@@ -38,7 +38,6 @@ umask 077
 #   CHEBURNET_POST_REBOOT_CHECK=0            — не планировать самопроверку после reboot
 #   CHEBURNET_CERTIFICATES=0                  — отключить аудит/автонастройку сертификатов
 #   CHEBURNET_CERTBOT_DRY_RUN=0               — не выполнять периодический certbot renew --dry-run
-#   CHEBURNET_INSTALL_TRAFFIC_CONTROL=1|0     — установить/пропустить Traffic Control без вопроса
 #   CHEBURNET_ASSUME_YES=1                    — пропустить стартовое подтверждение в автоматизации
 # Скрипт НЕ создаёт и НЕ добавляет SSH-ключи.
 # ============================================================
@@ -185,7 +184,6 @@ show_intro() {
     printf '  ◆ Усиливает безопасные sysctl-параметры и проверяет SSH, Fail2ban и firewall.\n'
     printf '  ◆ Проверяет защиту API панели Remnawave и чувствительные публичные порты.\n'
     printf '  ◆ Проверяет security-updates, NTP, TRIM, диск/inode и сертификаты.\n'
-    printf '  ◆ Может дополнительно установить ЧебурNET Traffic Control — только по вашему выбору.\n'
     printf '  ◆ Создаёт снимки состояния и планирует контроль после перезагрузки.\n'
     printf '\n%sПринцип работы:%s настройки рассчитываются по CPU/RAM; рабочие сторонние\n' "$C_BOLD" "$C_RESET"
     printf 'конфигурации не перезаписываются без необходимости. Некоторые недостающие\n'
@@ -287,7 +285,6 @@ FSTRIM_BIN=$(command -v fstrim || true)
 FINDMNT_BIN=$(command -v findmnt || true)
 LSBLK_BIN=$(command -v lsblk || true)
 DF_BIN=$(command -v df || true)
-CURL_BIN=$(command -v curl || true)
 CERTBOT_BIN=$(command -v certbot || true)
 OPENSSL_BIN=$(command -v openssl || true)
 CRONTAB_BIN=$(command -v crontab || true)
@@ -300,7 +297,6 @@ INSTALL_ZRAM_PACKAGES=${CHEBURNET_INSTALL_ZRAM_PACKAGES:-1}
 POST_REBOOT_ENABLED=${CHEBURNET_POST_REBOOT_CHECK:-1}
 CERTIFICATE_AUTOMATION=${CHEBURNET_CERTIFICATES:-1}
 CERTBOT_DRY_RUN=${CHEBURNET_CERTBOT_DRY_RUN:-1}
-TRAFFIC_CONTROL_CHOICE=${CHEBURNET_INSTALL_TRAFFIC_CONTROL:-}
 # Порт панели намеренно НЕ имеет значения по умолчанию. v1.0.0 определяет его
 # по фактическим listener/firewall-правилам либо спрашивает пользователя.
 # Это исключает старые/жёсткие списки портов и ошибочное предположение про 2222.
@@ -4407,222 +4403,6 @@ else
 fi
 
 # ============================================================
-# Подготовка опциональной установки ЧебурNET Traffic Control.
-# Сам шаг запускается последним, после всех настроек Auto Tuning.
-# ============================================================
-# Загружается неизменяемый файл из фиксированного релиза нашей разработки.
-# Выполнение разрешается только после проверки закреплённой SHA-256.
-TRAFFIC_CONTROL_VERSION='1.0.1'
-TRAFFIC_CONTROL_URL="https://raw.githubusercontent.com/leonidkopysov/CheburNET-Traffic-Control/v${TRAFFIC_CONTROL_VERSION}/cheburnet-traffic-control.py"
-TRAFFIC_CONTROL_SHA256='9aae0ea5eb1bbb36ada92891436b77a6d6b0976dcc8e400c60c24a19aa89095b'
-TRAFFIC_CONTROL_STATUS="не установлен"
-TRAFFIC_CONTROL_VERIFY_OK=1
-TRAFFIC_CONTROL_SKIPPED=0
-
-traffic_control_installed() {
-    [[ -x /usr/local/bin/cheburnet-traffic-control ]] && return 0
-    [[ -e /var/lib/cheburnet-traffic-control/state.json ]] && return 0
-    command -v ctc >/dev/null 2>&1 && return 0
-    return 1
-}
-
-traffic_control_verify() {
-    [[ -x /usr/local/bin/cheburnet-traffic-control ]] || return 1
-    [[ -x /usr/local/bin/ctc ]] || return 1
-    [[ -s /var/lib/cheburnet-traffic-control/state.json ]] || return 1
-    [[ -e /var/lib/cheburnet-traffic-control/enabled ]] || return 1
-    command -v nft >/dev/null 2>&1 || return 1
-    nft list table inet cheburnet_tc >/dev/null 2>&1 || return 1
-
-    if [[ -n $SYSTEMCTL_BIN ]]; then
-        "$SYSTEMCTL_BIN" is-enabled --quiet cheburnet-traffic-control.service 2>/dev/null || return 1
-        "$SYSTEMCTL_BIN" is-enabled --quiet cheburnet-traffic-control-update.timer 2>/dev/null || return 1
-        "$SYSTEMCTL_BIN" is-active --quiet cheburnet-traffic-control-update.timer 2>/dev/null || return 1
-    fi
-    return 0
-}
-
-legacy_trafficguard_installed() {
-    command -v rknpidor >/dev/null 2>&1 && return 0
-    command -v traffic-guard >/dev/null 2>&1 && return 0
-    [[ -e /opt/trafficguard-manager.sh ]] && return 0
-    return 1
-}
-
-run_traffic_control_installer() {
-    local source_file=$1
-    shift
-    "$PYTHON3_BIN" -c \
-        'import runpy, sys
-try:
-    module = runpy.run_path(sys.argv[1])
-    module["main"](sys.argv[2:])
-except KeyboardInterrupt:
-    raise SystemExit(130)
-except Exception as exc:
-    print(f"Traffic Control: {type(exc).__name__}: {exc}", file=sys.stderr)
-    raise SystemExit(1)' \
-        "$source_file" "$@"
-}
-
-install_traffic_control() {
-    local source_file=$1 ssh_client="" port address
-    local -a installer_args=(install --yes)
-    local -a allowed_addresses=()
-
-    # В терминале Traffic Control сам подтверждает IP администратора, SSH-порты
-    # и исходящий IP панели. В автоматизации передаём уже определённые значения.
-    if [[ ! -t 0 ]]; then
-        for port in "${SSH_PORTS[@]}"; do
-            installer_args+=(--ssh-port "$port")
-        done
-        IFS=' ' read -r ssh_client _ <<<"${SSH_CONNECTION:-}" || true
-        mapfile -t allowed_addresses < <(
-            normalize_ip_list "${ssh_client} ${PANEL_IPS_NORMALIZED:-}" | sort -u
-        )
-        if ((${#allowed_addresses[@]} == 0)); then
-            warn "Для автоматической установки Traffic Control не удалось определить IP администратора или панели. Задайте CHEBURNET_PANEL_IPS либо запустите скрипт в терминале."
-            return 1
-        fi
-        for address in "${allowed_addresses[@]}"; do
-            installer_args+=(--allow "$address")
-        done
-    fi
-
-    run_traffic_control_installer "$source_file" "${installer_args[@]}"
-}
-
-process_traffic_control() {
-section "ПОСЛЕДНИЙ ШАГ · ЧЕБУРNET TRAFFIC CONTROL"
-
-if traffic_control_installed; then
-    if traffic_control_verify; then
-        TRAFFIC_CONTROL_STATUS="установлен, фильтрация и автообновление активны"
-        ok "ЧебурNET Traffic Control уже установлен; существующая конфигурация не изменяется"
-    else
-        TRAFFIC_CONTROL_STATUS="обнаружена существующая/частичная установка — требуется диагностика"
-        TRAFFIC_CONTROL_VERIFY_OK=0
-        warn "ЧебурNET Traffic Control присутствует, но проверка компонентов не пройдена. Выполните: ctc c"
-    fi
-elif legacy_trafficguard_installed; then
-    TRAFFIC_CONTROL_STATUS="не установлен: обнаружен TrafficGuard"
-    TRAFFIC_CONTROL_VERIFY_OK=0
-    warn "Обнаружен TrafficGuard. Сначала удалите его штатным способом; автоматический перенос настроек в ЧебурNET Traffic Control не выполняется."
-else
-    WANT_TRAFFIC_CONTROL=0
-    case "$TRAFFIC_CONTROL_CHOICE" in
-        1|yes|YES|true|TRUE) WANT_TRAFFIC_CONTROL=1 ;;
-        0|no|NO|false|FALSE) WANT_TRAFFIC_CONTROL=0; TRAFFIC_CONTROL_SKIPPED=1 ;;
-        "")
-            if [[ -t 0 ]]; then
-                printf '%s%sЧебурNET Traffic Control%s блокирует известные IP и подсети сканеров на уровне nftables.\n' "$C_BOLD" "$C_MAGENTA" "$C_RESET"
-                printf 'Поддерживаются IPv4/IPv6, три внешних списка, журналирование и статистика срабатываний.\n'
-                printf '%s%s[!]%s Будет создана отдельная таблица nftables inet cheburnet_tc. Перед продолжением держите доступной консоль VPS.\n' "$C_BOLD" "$C_YELLOW" "$C_RESET"
-                if prompt_yes_no "Установить ЧебурNET Traffic Control?"; then
-                    WANT_TRAFFIC_CONTROL=1
-                else
-                    TRAFFIC_CONTROL_SKIPPED=1
-                fi
-            else
-                TRAFFIC_CONTROL_SKIPPED=1
-            fi
-            ;;
-        *)
-            warn "Некорректный CHEBURNET_INSTALL_TRAFFIC_CONTROL=${TRAFFIC_CONTROL_CHOICE}; Traffic Control пропущен."
-            TRAFFIC_CONTROL_SKIPPED=1
-            ;;
-    esac
-
-    if (( WANT_TRAFFIC_CONTROL )); then
-        if [[ -z $CURL_BIN ]]; then
-            TRAFFIC_CONTROL_VERIFY_OK=0
-            TRAFFIC_CONTROL_STATUS="не установлен: curl отсутствует"
-            warn "ЧебурNET Traffic Control не установлен: curl недоступен."
-        elif [[ -z $PYTHON3_BIN ]]; then
-            TRAFFIC_CONTROL_VERIFY_OK=0
-            TRAFFIC_CONTROL_STATUS="не установлен: Python 3 отсутствует"
-            warn "ЧебурNET Traffic Control не установлен: требуется Python 3.10 или новее."
-        else
-            TRAFFIC_CONTROL_TMP=$(mktemp)
-            register_temp_file "$TRAFFIC_CONTROL_TMP"
-            info "Скачивается ЧебурNET Traffic Control v${TRAFFIC_CONTROL_VERSION} из фиксированного релиза..."
-            TRAFFIC_CONTROL_DOWNLOAD_OK=0
-            TRAFFIC_CONTROL_CHECKSUM_OK=0
-            TRAFFIC_CONTROL_SYNTAX_OK=0
-
-            if "$CURL_BIN" -fsSL --connect-timeout 15 --max-time 180 --retry 2 \
-                "$TRAFFIC_CONTROL_URL" -o "$TRAFFIC_CONTROL_TMP"; then
-                TRAFFIC_CONTROL_DOWNLOAD_OK=1
-            fi
-
-            if (( TRAFFIC_CONTROL_DOWNLOAD_OK )); then
-                if command -v sha256sum >/dev/null 2>&1; then
-                    TRAFFIC_CONTROL_ACTUAL_SHA=$(sha256sum "$TRAFFIC_CONTROL_TMP" 2>/dev/null | awk '{print $1}' || true)
-                    if [[ $TRAFFIC_CONTROL_ACTUAL_SHA == "$TRAFFIC_CONTROL_SHA256" ]]; then
-                        TRAFFIC_CONTROL_CHECKSUM_OK=1
-                        ok "Traffic Control: SHA-256 релизного файла подтверждён"
-                    else
-                        TRAFFIC_CONTROL_STATUS="установка отменена: контрольная сумма не совпала"
-                        TRAFFIC_CONTROL_VERIFY_OK=0
-                        warn "Контрольная сумма Traffic Control не совпала; установка отменена. Ожидалось ${TRAFFIC_CONTROL_SHA256}, получено ${TRAFFIC_CONTROL_ACTUAL_SHA:-неизвестно}."
-                    fi
-                else
-                    TRAFFIC_CONTROL_STATUS="установка отменена: sha256sum недоступен"
-                    TRAFFIC_CONTROL_VERIFY_OK=0
-                    warn "sha256sum недоступен; безопасно проверить Traffic Control нельзя, установка отменена."
-                fi
-            else
-                TRAFFIC_CONTROL_STATUS="не удалось скачать релизный файл"
-                TRAFFIC_CONTROL_VERIFY_OK=0
-                warn "Не удалось скачать ЧебурNET Traffic Control."
-            fi
-
-            if (( TRAFFIC_CONTROL_CHECKSUM_OK )) && "$PYTHON3_BIN" -c \
-                'import pathlib, sys; compile(pathlib.Path(sys.argv[1]).read_text(encoding="utf-8"), sys.argv[1], "exec")' \
-                "$TRAFFIC_CONTROL_TMP"; then
-                TRAFFIC_CONTROL_SYNTAX_OK=1
-            elif (( TRAFFIC_CONTROL_CHECKSUM_OK )); then
-                TRAFFIC_CONTROL_STATUS="установка отменена: ошибка синтаксиса релизного файла"
-                TRAFFIC_CONTROL_VERIFY_OK=0
-                warn "Traffic Control прошёл SHA-256, но не прошёл проверку синтаксиса Python; установка отменена."
-            fi
-
-            if (( TRAFFIC_CONTROL_SYNTAX_OK )); then
-                info "SHA-256 и синтаксис подтверждены; запускается установка ЧебурNET Traffic Control."
-                TRAFFIC_CONTROL_INSTALL_RC=0
-                if install_traffic_control "$TRAFFIC_CONTROL_TMP"; then
-                    if traffic_control_verify; then
-                        TRAFFIC_CONTROL_STATUS="установлен и проверен"
-                        ok "ЧебурNET Traffic Control установлен; фильтрация и автообновление активны"
-                    elif traffic_control_installed; then
-                        TRAFFIC_CONTROL_STATUS="установлен, но финальная проверка неполная"
-                        TRAFFIC_CONTROL_VERIFY_OK=0
-                        warn "ЧебурNET Traffic Control установлен, но финальная проверка компонентов неполная. Выполните: ctc c"
-                    else
-                        TRAFFIC_CONTROL_STATUS="установщик завершился, установка не подтверждена"
-                        TRAFFIC_CONTROL_VERIFY_OK=0
-                        warn "Установка завершилась, но команда ctc и конфигурация не обнаружены."
-                    fi
-                else
-                    TRAFFIC_CONTROL_INSTALL_RC=$?
-                    if (( TRAFFIC_CONTROL_INSTALL_RC == 130 || TRAFFIC_CONTROL_INSTALL_RC == 143 )); then
-                        warn "Установка Traffic Control прервана пользователем."
-                        return "$TRAFFIC_CONTROL_INSTALL_RC"
-                    fi
-                    TRAFFIC_CONTROL_STATUS="ошибка установщика ЧебурNET Traffic Control"
-                    TRAFFIC_CONTROL_VERIFY_OK=0
-                    warn "Установщик ЧебурNET Traffic Control завершился с ошибкой."
-                fi
-            fi
-            rm -f "$TRAFFIC_CONTROL_TMP"
-        fi
-    else
-        TRAFFIC_CONTROL_STATUS="пропущен пользователем"
-        info "Traffic Control не устанавливается. Для неинтерактивного выбора: CHEBURNET_INSTALL_TRAFFIC_CONTROL=1."
-    fi
-fi
-}
-
 section "СИСТЕМНОЕ ОБСЛУЖИВАНИЕ"
 
 NTP_STATUS="не проверен"
@@ -4953,10 +4733,6 @@ fi
 SECURITY_FILES_STATUS="права собственных файлов нормализованы"
 ok "Права на собственные конфигурации/снимки ЧебурNET нормализованы"
 
-# Опциональная защита выполняется самым последним изменяющим систему шагом.
-# После неё остаются только итоговая проверка и печать отчёта.
-process_traffic_control
-
 # ============================================================
 # Финальная проверка всех компонентов
 # ============================================================
@@ -5142,16 +4918,6 @@ case "$CERT_FINAL_RC" in
     *) final_warn "Сертификаты" "$CERT_STATUS" ;;
 esac
 
-if (( TRAFFIC_CONTROL_SKIPPED )); then
-    final_skip "Traffic Control" "$TRAFFIC_CONTROL_STATUS"
-elif (( TRAFFIC_CONTROL_VERIFY_OK )) && traffic_control_installed; then
-    final_ok "Traffic Control" "$TRAFFIC_CONTROL_STATUS"
-elif traffic_control_installed; then
-    final_warn "Traffic Control" "$TRAFFIC_CONTROL_STATUS"
-else
-    final_skip "Traffic Control" "$TRAFFIC_CONTROL_STATUS"
-fi
-
 if [[ -n $SYSTEMCTL_BIN && -f $AUTHORITATIVE_SERVICE ]]; then
     if "$SYSTEMCTL_BIN" is-enabled --quiet cheburnet-performance-sysctl.service 2>/dev/null; then
         final_ok "Автоприменение sysctl" "cheburnet-performance-sysctl.service включён"
@@ -5259,7 +5025,6 @@ printf '  Опасные порты         %s\n' "${PUBLIC_DANGEROUS_PORTS:-н�
 printf '  Файлы ЧебурNET        %s\n' "$SECURITY_FILES_STATUS"
 printf '  Сертификаты           %s\n' "$CERT_STATUS"
 printf '  ACME / firewall       %s\n' "$CERT_FIREWALL_STATUS"
-printf '  Traffic Control       %s\n' "$TRAFFIC_CONTROL_STATUS"
 
 printf '\n%sИЗМЕНЕНИЯ И ПРОВЕРКИ%s\n' "$C_BOLD" "$C_RESET"
 printf '  Предупреждения        %s\n' "$WARNINGS"
