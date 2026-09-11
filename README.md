@@ -39,7 +39,7 @@ bash <(curl -fsSL https://raw.githubusercontent.com/leonidkopysov/CheburNET-Auto
 | Remnawave/Xray | поиск контейнера ноды, NOFILE, network namespace, API-порт и системные лимиты |
 | Защита | kernel hardening, SSH-аудит, Fail2ban, UFW/nftables, Docker socket и публичные порты |
 | Обслуживание | security updates, NTP, TRIM, диск, inode, сертификаты и проверка после reboot |
-| Дополнительно | установка TrafficGuard только после отдельного выбора пользователя |
+| Дополнительно | установка нашей защиты [ЧебурNET Traffic Control](https://github.com/leonidkopysov/CheburNET-Traffic-Control) только после отдельного выбора пользователя |
 
 Настройки рассчитываются по ресурсам и фактическому состоянию сервера. Повторный запуск поддерживается: скрипт снова выполняет диагностику и применяет только необходимые исправления.
 
@@ -69,13 +69,13 @@ bash <(curl -fsSL https://raw.githubusercontent.com/leonidkopysov/CheburNET-Auto
 | `CHEBURNET_INSTALL_ZRAM_PACKAGES=0` | не устанавливать пакеты ZRAM |
 | `CHEBURNET_SYSTEM_MAINTENANCE=0` | отключить системное обслуживание |
 | `CHEBURNET_CERTIFICATES=0` | отключить аудит сертификатов |
-| `CHEBURNET_INSTALL_TRAFFICGUARD=1/0` | установить или пропустить TrafficGuard без вопроса |
+| `CHEBURNET_INSTALL_TRAFFIC_CONTROL=1/0` | установить или пропустить ЧебурNET Traffic Control без вопроса |
 | `CHEBURNET_POST_REBOOT_CHECK=0` | не создавать проверку после перезагрузки |
 
-Пример для автоматического запуска без TrafficGuard:
+Пример для автоматического запуска без Traffic Control:
 
 ```bash
-CHEBURNET_ASSUME_YES=1 CHEBURNET_INSTALL_TRAFFICGUARD=0 \
+CHEBURNET_ASSUME_YES=1 CHEBURNET_INSTALL_TRAFFIC_CONTROL=0 \
 bash <(curl -fsSL https://raw.githubusercontent.com/leonidkopysov/CheburNET-Auto-Tuning/main/cheburnet-auto-tuning.sh)
 ```
 
