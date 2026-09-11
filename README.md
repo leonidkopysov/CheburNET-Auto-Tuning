@@ -39,7 +39,7 @@ bash <(curl -fsSL https://raw.githubusercontent.com/leonidkopysov/CheburNET-Auto
 | Remnawave/Xray | поиск контейнера ноды, NOFILE, network namespace, API-порт и системные лимиты |
 | Защита | kernel hardening, SSH-аудит, Fail2ban, UFW/nftables, Docker socket и публичные порты |
 | Обслуживание | security updates, NTP, TRIM, диск, inode, сертификаты и проверка после reboot |
-| Дополнительно | установка нашей защиты [ЧебурNET Traffic Control](https://github.com/leonidkopysov/CheburNET-Traffic-Control) только после отдельного выбора пользователя |
+| Дополнительно | установка нашей защиты [ЧебурNET Traffic Control](https://github.com/leonidkopysov/CheburNET-Traffic-Control) только после отдельного выбора пользователя и самым последним изменяющим систему шагом |
 
 Настройки рассчитываются по ресурсам и фактическому состоянию сервера. Повторный запуск поддерживается: скрипт снова выполняет диагностику и применяет только необходимые исправления.
 
@@ -47,9 +47,11 @@ bash <(curl -fsSL https://raw.githubusercontent.com/leonidkopysov/CheburNET-Auto
 
 | Система | Статус |
 |---|:---:|
+| Ubuntu 22.04 LTS | ✅ Поддерживается |
 | Ubuntu 24.04 LTS | ✅ Основная платформа |
 | Debian 12 | ✅ Поддерживается |
-| x86_64 / amd64 | ✅ |
+| x86_64 / amd64 | ✅ Поддерживается |
+| arm64 / aarch64 | ✅ Поддерживается |
 | KVM/VPS и выделенный сервер | ✅ |
 | Xray / Remnawave Node | ✅ |
 

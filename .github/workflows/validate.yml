@@ -18,9 +18,8 @@ jobs:
         run: bash -n cheburnet-auto-tuning.sh
       - name: Установка ShellCheck
         run: sudo apt-get update && sudo apt-get install -y shellcheck
-      - name: Проверка критических ошибок ShellCheck
-        run: shellcheck -x --severity=error cheburnet-auto-tuning.sh
-      - name: Информационные предупреждения ShellCheck
-        continue-on-error: true
+      - name: Проверка ShellCheck (ошибки и предупреждения)
         run: shellcheck -x --severity=warning cheburnet-auto-tuning.sh
-
+      - name: Информационные замечания ShellCheck
+        continue-on-error: true
+        run: shellcheck -x --severity=info cheburnet-auto-tuning.sh
