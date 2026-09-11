@@ -1689,6 +1689,8 @@ has_persistent_sysctl_assignment_elsewhere() {
 
 apt_install_zram_packages() {
     local -a pkgs=("$@")
+    local -a apt_options=(-o Dpkg::Use-Pty=0 -o Dpkg::Lock::Timeout=60 -o Acquire::Retries=3)
+    local apt_rc=0
     ((${#pkgs[@]})) || return 0
     [[ ${INSTALL_ZRAM_PACKAGES:-1} == 1 ]] || {
         info "Автоустановка компонентов ZRAM отключена CHEBURNET_INSTALL_ZRAM_PACKAGES=0."
@@ -1699,15 +1701,24 @@ apt_install_zram_packages() {
         return 1
     }
 
-    info "Устанавливаю недостающие компоненты ZRAM: ${pkgs[*]}"
-    if DEBIAN_FRONTEND=noninteractive "$TIMEOUT_BIN" 1800 "$APT_GET_BIN" install -y --no-install-recommends "${pkgs[@]}" >/dev/null 2>&1; then
+    info "Устанавливаю недостающие компоненты ZRAM: ${pkgs[*]}. Прогресс APT выводится ниже; операция может занять несколько минут."
+    if DEBIAN_FRONTEND=noninteractive "$TIMEOUT_BIN" 900 "$APT_GET_BIN" \
+        "${apt_options[@]}" install -y --no-install-recommends "${pkgs[@]}"; then
         refresh_zram_bins
         return 0
+    else
+        apt_rc=$?
+        if (( apt_rc == 124 )); then
+            warn "APT превысил лимит 15 минут при установке компонентов ZRAM."
+        else
+            warn "Первичная установка компонентов ZRAM завершилась с кодом ${apt_rc}."
+        fi
     fi
 
     info "Первичная установка не удалась; обновляю индекс APT и повторяю."
-    if DEBIAN_FRONTEND=noninteractive "$TIMEOUT_BIN" 1800 "$APT_GET_BIN" update >/dev/null 2>&1 \
-       && DEBIAN_FRONTEND=noninteractive "$TIMEOUT_BIN" 1800 "$APT_GET_BIN" install -y --no-install-recommends "${pkgs[@]}" >/dev/null 2>&1; then
+    if DEBIAN_FRONTEND=noninteractive "$TIMEOUT_BIN" 600 "$APT_GET_BIN" "${apt_options[@]}" update \
+       && DEBIAN_FRONTEND=noninteractive "$TIMEOUT_BIN" 900 "$APT_GET_BIN" \
+            "${apt_options[@]}" install -y --no-install-recommends "${pkgs[@]}"; then
         refresh_zram_bins
         return 0
     fi
