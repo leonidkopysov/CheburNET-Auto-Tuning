@@ -108,7 +108,7 @@ atomic_write_file() {
 cleanup_runtime_files() {
     local path
     for path in "${RUNTIME_TEMP_FILES[@]}"; do
-        [[ -n $path ]] && rm -f -- "$path" 2>/dev/null || true
+        if [[ -n $path ]]; then rm -f -- "$path" 2>/dev/null || true; fi
     done
 }
 
@@ -118,6 +118,7 @@ trap cleanup_runtime_files EXIT
 ui_message() {
     local badge=$1 color=$2 message=$3 width=${COLUMNS:-80} part
     [[ $width =~ ^[0-9]{2,3}$ ]] || width=80
+    width=$((10#$width))
     (( width < 24 )) && width=24
     (( width > 80 )) && width=80
     width=$((width - 4))
