@@ -35,6 +35,7 @@ umask 077
 #   CHEBURNET_ALLOW_DOCKER_RESTART=1        — разрешить редкий fallback с restart Docker
 #   CHEBURNET_SYSTEM_MAINTENANCE=0           — отключить NTP/fstrim/диск-аудит
 #   CHEBURNET_INSTALL_ZRAM_PACKAGES=0        — не устанавливать недостающие компоненты ZRAM
+#   CHEBURNET_INSTALL_ZRAM_MODULES=1|0        — установить/пропустить linux-modules-extra без вопроса
 #   CHEBURNET_POST_REBOOT_CHECK=0            — не планировать самопроверку после reboot
 #   CHEBURNET_CERTIFICATES=0                  — отключить аудит/автонастройку сертификатов
 #   CHEBURNET_CERTBOT_DRY_RUN=0               — не выполнять периодический certbot renew --dry-run
@@ -294,6 +295,7 @@ SECURITY_ENABLED=${CHEBURNET_SECURITY:-1}
 INSTALL_SECURITY_PACKAGES=${CHEBURNET_INSTALL_SECURITY_PACKAGES:-1}
 SYSTEM_MAINTENANCE=${CHEBURNET_SYSTEM_MAINTENANCE:-1}
 INSTALL_ZRAM_PACKAGES=${CHEBURNET_INSTALL_ZRAM_PACKAGES:-1}
+INSTALL_ZRAM_MODULES_CHOICE=${CHEBURNET_INSTALL_ZRAM_MODULES:-}
 POST_REBOOT_ENABLED=${CHEBURNET_POST_REBOOT_CHECK:-1}
 CERTIFICATE_AUTOMATION=${CHEBURNET_CERTIFICATES:-1}
 CERTBOT_DRY_RUN=${CHEBURNET_CERTBOT_DRY_RUN:-1}
@@ -1697,7 +1699,7 @@ apt_install_zram_packages() {
         return 1
     }
 
-    info "Устанавливаю недостающие компоненты ZRAM: ${pkgs[*]}. Прогресс APT выводится ниже; операция может занять несколько минут."
+    info "Устанавливаю компоненты ZRAM: ${pkgs[*]}. Прогресс APT выводится ниже."
     if DEBIAN_FRONTEND=noninteractive "$TIMEOUT_BIN" 900 "$APT_GET_BIN" \
         "${apt_options[@]}" install -y --no-install-recommends "${pkgs[@]}"; then
         refresh_zram_bins
@@ -1756,9 +1758,34 @@ ensure_zram_kernel_module() {
         os_id=$(awk -F= '$1=="ID" {gsub(/"/,"",$2); print $2; exit}' /etc/os-release 2>/dev/null || true)
     fi
     if [[ $os_id == ubuntu && ${INSTALL_ZRAM_PACKAGES:-1} == 1 ]]; then
-        if apt_install_zram_packages "linux-modules-extra-$(uname -r)"; then
+        local modules_package want_modules=0
+        modules_package="linux-modules-extra-$(uname -r)"
+        case "$INSTALL_ZRAM_MODULES_CHOICE" in
+            1|yes|YES|true|TRUE) want_modules=1 ;;
+            0|no|NO|false|FALSE) want_modules=0 ;;
+            "")
+                if [[ -t 0 ]]; then
+                    printf '%s%s[!]%s Для ZRAM требуется пакет %s (обычно 100–120 МБ).\n' \
+                        "$C_BOLD" "$C_YELLOW" "$C_RESET" "$modules_package"
+                    printf '%s%s[!]%s Установка может занять до 15 минут; распаковка и initramfs могут временно не выводить строки. Не нажимайте Ctrl+C.\n' \
+                        "$C_BOLD" "$C_YELLOW" "$C_RESET"
+                    if prompt_yes_no "Установить дополнительные модули ядра для ZRAM? Ответ «Нет» пропустит ZRAM."; then
+                        want_modules=1
+                    fi
+                else
+                    info "Неинтерактивный запуск: ${modules_package} пропущен. Для установки задайте CHEBURNET_INSTALL_ZRAM_MODULES=1."
+                fi
+                ;;
+            *)
+                warn "Некорректный CHEBURNET_INSTALL_ZRAM_MODULES=${INSTALL_ZRAM_MODULES_CHOICE}; дополнительные модули пропущены."
+                ;;
+        esac
+
+        if (( want_modules )) && apt_install_zram_packages "$modules_package"; then
             "$MODPROBE_BIN" zram num_devices=1 >/dev/null 2>&1 || "$MODPROBE_BIN" zram >/dev/null 2>&1 || true
             [[ -d /sys/block/zram0 || -d /sys/class/zram-control ]] && return 0
+        elif (( want_modules == 0 )); then
+            info "Дополнительные модули ядра не устанавливаются; ZRAM на текущем ядре пропущен."
         fi
     fi
 

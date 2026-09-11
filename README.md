@@ -68,6 +68,7 @@ bash <(curl -fsSL https://raw.githubusercontent.com/leonidkopysov/CheburNET-Auto
 | `CHEBURNET_FIREWALL_PORTS="tcp:443"` | дополнительные публичные порты |
 | `CHEBURNET_HARDEN_SSH=1` | включить key-only SSH при наличии `authorized_keys` |
 | `CHEBURNET_INSTALL_ZRAM_PACKAGES=0` | не устанавливать пакеты ZRAM |
+| `CHEBURNET_INSTALL_ZRAM_MODULES=1/0` | установить или пропустить `linux-modules-extra` без вопроса |
 | `CHEBURNET_SYSTEM_MAINTENANCE=0` | отключить системное обслуживание |
 | `CHEBURNET_CERTIFICATES=0` | отключить аудит сертификатов |
 | `CHEBURNET_POST_REBOOT_CHECK=0` | не создавать проверку после перезагрузки |
